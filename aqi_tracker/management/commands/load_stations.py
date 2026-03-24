@@ -220,6 +220,36 @@ STATIONS = [
                  "comparison — does a higher-income community to the east show "
                  "lower burden? (Likely yes, due to less local industry.)",
     },
+
+    # ── Historical only (offline EPA/DEQ stations — do not poll) ─────────────
+    # Together these form a continuous official record for SW Detroit: 2018–2025.
+    # Import their data via import_historical; leave active=False.
+    {
+        "waqi_id": "@5325",
+        "name": "Detroit - W Lafayette",
+        "city": "Detroit",
+        "latitude": 42.3206,
+        "longitude": -83.0747,
+        "is_primary": False,
+        "active": False,
+        "wind_position": Station.WindPosition.PRIMARY,
+        "notes": "Michigan DEQ station, offline since Feb 2020. "
+                 "Historical data: Oct 2018 – Feb 2020. "
+                 "Succeeded by Detroit Southwest (@12851).",
+    },
+    {
+        "waqi_id": "@12851",
+        "name": "Detroit - Southwest",
+        "city": "Detroit",
+        "latitude": 42.3042,
+        "longitude": -83.1072,
+        "is_primary": False,
+        "active": False,
+        "wind_position": Station.WindPosition.PRIMARY,
+        "notes": "Michigan DEQ station, offline since Jun 2025. "
+                 "Historical data: Nov 2020 – Apr 2025. "
+                 "Preceded by Detroit W Lafayette (@5325).",
+    },
 ]
 
 
