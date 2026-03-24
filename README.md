@@ -1,16 +1,20 @@
 # 48208-air
 
 A Django app that collects and visualizes air quality data across a regional
-sensor network centered on Detroit's Core City neighborhood (ZIP 48208) — one
+sensor network centered on Detroit's Core City neighborhood (ZIP 48208), one
 of Michigan's highest pollution-burden communities.
 
-The primary sensor (`@548659`, GAIA A12) is located on Breckenridge St and
+![Dashboard mockup](docs/dashboard_mockup.png)
+
+The primary sensor (`A548659`, GAIA A12) is located on Breckenridge St and
 feeds into the [World Air Quality Index](https://aqicn.org) global network.
-It is currently the **only community air sensor in Detroit proper**.
+It is currently the **only community air sensor in Detroit's Core City
+neighborhood with public AQICN reporting** (many PurpleAir sensors exist
+in the region but are not aggregated into AQICN).
 
 The network also tracks upwind stations (Ann Arbor, Ypsilanti) for early
 wildfire smoke warning, and downwind stations (Windsor, Grosse Pointe) for
-plume confirmation — based on the region's prevailing SW→NE winds.
+plume confirmation, based on the region's prevailing SW→NE winds.
 
 A recurring theme in the data: dramatic PM2.5 spikes during Canadian wildfire
 season (May–October), visible as AQI readings above 100 dominated by fine
@@ -30,17 +34,18 @@ the primary sensor:
 
 | Wind position | Stations | Purpose |
 |---|---|---|
-| **Upwind** | Ann Arbor, Ypsilanti | Early warning — smoke arrives here before 48208 |
-| **Primary** | Breckenridge, Detroit | Home sensor — baseline + real-time |
-| **Crosswind** | Dearborn, Hamtramck (×4) | Industrial comparison reference |
-| **Downwind** | Windsor (×2), Grosse Pointe | Plume confirmation; wind reversal detection |
+| **Upwind** | Ann Arbor (×5), Ypsilanti | Early warning, smoke arrives here before 48208 |
+| **Primary** | Breckenridge, Detroit | Home sensor, baseline + real-time |
+| **Crosswind** | Dearborn, Allen Park, Oak Park, Hamtramck (×4) | Industrial comparison reference |
+| **Downwind** | Windsor (×3), Grosse Pointe | Plume confirmation, wind reversal detection |
 
 The Hamtramck cluster (4 sensors) was placed around the GM Factory ZERO EV
-assembly plant — a useful EJ monitoring comparison for 48208's cumulative
+assembly plant, a useful EJ monitoring comparison for 48208's cumulative
 industrial burden.
 
-Note: non-primary station IDs in `load_stations.py` are approximate and must
-be verified. See **Verifying station IDs** below.
+Two offline Michigan DEQ stations (`Detroit - W Lafayette`, `Detroit - Southwest`)
+are included as `active=False` and together provide a continuous official
+baseline for SW Detroit from 2014 through June 2025.
 
 ---
 
@@ -58,7 +63,7 @@ pip install django requests django-apscheduler
 
 Free token at: https://aqicn.org/api/  
 Tokens are issued immediately via email. The free tier allows 1,000
-requests/day — well above the hourly polling rate for 11 stations (264/day).
+requests/day, sufficient for hourly polling of 18 active stations (432/day).
 
 ### 3. Configure settings
 
@@ -82,27 +87,22 @@ python manage.py migrate
 python manage.py load_stations
 ```
 
-### 5. Verify non-primary station IDs
+### 5. Import historical data (optional)
 
-The station IDs for all non-primary stations need to be confirmed before
-live polling. The easiest method:
-
-1. Go to [aqicn.org/map/](https://aqicn.org/map/) and zoom to Detroit
-2. Click each sensor — the URL reveals the station name
-3. Run the verification helper:
+Download daily CSV exports from [aqicn.org/data-platform/](https://aqicn.org/data-platform/)
+for each station and place them in `historical_data/`. Then:
 
 ```bash
-python manage.py load_stations --verify-ids
+python manage.py import_historical --dry-run  # preview
+python manage.py import_historical            # load
 ```
 
-This prints an API URL for each non-primary station. A valid station returns
-`"status": "ok"`; an invalid ID returns `"status": "error"`. Update the IDs
-in `load_stations.py` and re-run to correct them.
+Note: `historical_data/` is excluded from git per WAQI data use terms.
 
 ### 6. Test and go live
 
 ```bash
-# Dry run first — fetches all stations but doesn't save
+# Dry run first: fetches all stations but doesn't save
 python manage.py fetch_aqi --dry-run
 
 # Fetch a single station by ID
@@ -119,7 +119,7 @@ python manage.py fetch_aqi
 ### cron (recommended for production)
 
 ```
-# /etc/cron.d/48208-air  — fetch all stations every hour
+# /etc/cron.d/48208-air :fetch all stations every hour
 0 * * * * www-data /path/to/venv/bin/python /path/to/manage.py fetch_aqi >> /var/log/48208-air.log 2>&1
 ```
 
@@ -150,18 +150,18 @@ scheduler.start()
 ## Data notes
 
 - `station_time` is stored in UTC; convert to `America/Detroit` for display
-- `unique_together = [("station", "station_time")]` makes polling idempotent —
+- `unique_together = [("station", "station_time")]` makes polling idempotent,
   running `fetch_aqi` multiple times in the same hour is safe
 - `is_wildfire_smoke_likely` on `AQIReading` is a PM2.5 + fire-season heuristic
-  (May–Oct, AQI > 100, dominant pollutant = pm25) — useful for UI flagging,
+  (May–Oct, AQI > 100, dominant pollutant = pm25), useful for UI flagging,
   not authoritative source attribution
 - WAQI returns `aqi = "-"` when a station is temporarily offline; the command
   logs an error for that station and continues with the rest
 - `dominant_pollutant` uses WAQI's field name `dominentpol` (their typo, preserved)
 - Pollutant signatures to watch for construction/industrial events:
-  - **PM10** — coarse dust (earthwork, demolition); distinct from PM2.5 smoke
-  - **NO2** — diesel exhaust; correlates with truck traffic increases
-  - **SO2** — industrial combustion; relevant for diesel generators (data centers)
+  - **PM10**: coarse dust (earthwork, demolition), distinct from PM2.5 smoke
+  - **NO2**: diesel exhaust, correlates with truck traffic increases
+  - **SO2**: industrial combustion, relevant for diesel generators (data centers)
 
 ---
 
@@ -191,13 +191,15 @@ baseline = AQIReading.objects.filter(
 
 ## Roadmap
 
-- [x] **TODO 1** — Models + single-station fetch command
-- [x] **TODO 2** — Multi-station `Station` model; regional network; `load_stations`
-- [x] **TODO 3** — Verify and fix regional station network (18 stations, real WAQI IDs + coordinates)
-- [ ] **TODO 4** — Historical backfill via WAQI data platform (lock in full baseline archive)
-- [ ] **TODO 5** — Test suite (pytest; models, management commands)
-- [ ] **TODO 6** — Dashboard: current AQI, 7-day trend, wildfire smoke highlighting,
-      station dropdown, upwind/downwind comparison view
-- [ ] **TODO 7** — EPA EJScreen overlay for 48208; socioeconomic context layer
-- [ ] **TODO 8** — Baseline deviation alerts: notify when readings exceed
+- [x] **TODO 1**:Models + single-station fetch command
+- [x] **TODO 2**:Multi-station `Station` model; regional network; `load_stations`
+- [x] **TODO 3**:Verify and fix regional station network (20 stations, real WAQI IDs + coordinates)
+- [x] **TODO 4**:Historical data import: 30,942 readings across 20 stations, back to 2014
+- [ ] **TODO 5**:Test suite (pytest; models, management commands)
+- [ ] **TODO 6**:Dashboard: current AQI, 7-day trend, wildfire smoke highlighting,
+      user-selectable primary station, upwind/downwind comparison view
+- [ ] **TODO 7**:EPA EJScreen overlay for 48208; socioeconomic context layer
+- [ ] **TODO 8**:Baseline deviation alerts: notify when readings exceed
       pre-construction norms by >2σ on PM10, NO2, or SO2
+- [ ] **TODO 9**:PurpleAir API integration: pull nearby sensors not on AQICN
+      to fill coverage gaps (Detroit proper has many PurpleAir sensors)
