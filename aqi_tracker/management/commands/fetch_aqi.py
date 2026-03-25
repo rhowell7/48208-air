@@ -11,6 +11,7 @@ Usage:
 Cron (hourly):
     0 * * * * /path/to/venv/bin/python /path/to/manage.py fetch_aqi
 """
+
 import logging
 import time
 import zoneinfo
@@ -66,7 +67,9 @@ class Command(BaseCommand):
             )
             return
 
-        now = datetime.now(zoneinfo.ZoneInfo("America/Detroit")).strftime("%Y-%m-%d %H:%M %Z")
+        now = datetime.now(zoneinfo.ZoneInfo("America/Detroit")).strftime(
+            "%Y-%m-%d %H:%M %Z"
+        )
         self.stdout.write(f"\n=== fetch_aqi {now} ===")
         self.stdout.write(f"Fetching {stations.count()} station(s)...")
         results = {"saved": 0, "skipped": 0, "errors": 0}
@@ -96,8 +99,14 @@ class Command(BaseCommand):
 
         data = response.json()
         inner = data.get("data", {})
-        if data.get("status") != "ok" or (isinstance(inner, dict) and inner.get("status") == "error"):
-            msg = inner.get("msg") if isinstance(inner, dict) else data.get("data", "unknown")
+        if data.get("status") != "ok" or (
+            isinstance(inner, dict) and inner.get("status") == "error"
+        ):
+            msg = (
+                inner.get("msg")
+                if isinstance(inner, dict)
+                else data.get("data", "unknown")
+            )
             raise ValueError(
                 f"API error: {msg}. "
                 "Station ID may be wrong — check waqi_id in load_stations.py."
@@ -106,7 +115,9 @@ class Command(BaseCommand):
         reading = self._parse_response(station, inner)
 
         if dry_run:
-            self.stdout.write(self.style.WARNING(f"  DRY RUN {station.name}: {reading}"))
+            self.stdout.write(
+                self.style.WARNING(f"  DRY RUN {station.name}: {reading}")
+            )
             return
 
         _, created = AQIReading.objects.get_or_create(
@@ -148,9 +159,9 @@ class Command(BaseCommand):
         if aqi_raw == "-":
             raise ValueError("Station offline (aqi='-').")
 
-        station_time = datetime.fromisoformat(
-            data["time"]["iso"]
-        ).astimezone(timezone.utc)
+        station_time = datetime.fromisoformat(data["time"]["iso"]).astimezone(
+            timezone.utc
+        )
 
         return AQIReading(
             station=station,

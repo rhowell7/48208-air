@@ -25,6 +25,7 @@ All readings are stored at midnight UTC. Idempotent: safe to re-run.
 Data sourced from the World Air Quality Index Project (waqi.info) and
 originating EPA agencies. Data is unvalidated and subject to change.
 """
+
 import csv
 from datetime import datetime, timezone
 from pathlib import Path
@@ -36,34 +37,34 @@ from aqi_tracker.models import AQIReading, Station
 
 # Maps CSV filename → Station.waqi_id
 FILE_TO_WAQI_ID = {
-    "allen-park-air-quality.csv":                          "@5322",
-    "ann-arbor-northside-air-quality.csv":                 "A563443",
-    "ann-arbor-sugarbush-park-air-quality.csv":            "A554191",
-    "ann-arbor-veterans-memorial-park-air-quality.csv":    "A490177",
-    "ann-arbor-wastewater-treatment-plant-air-quality.csv":"A554200",
-    "ann-arbor-water-treatment-plant-air-quality.csv":     "A554188",
-    "dearborn-air-quality.csv":                            "@5324",
-    "detroit-breckenridge-air-quality.csv":                "A548659",
-    "detroit-southwest-air-quality.csv":                   "@12851",
-    "detroit-w-lafayette-air-quality.csv":                 "@5325",
-    "grosse-pointe-air-quality.csv":                       "A547657",
-    "hamtramck-east-air-quality.csv":                      "A1089652",
-    "hamtramck-north-air-quality.csv":                     "A1089643",
-    "hamtramck-south-air-quality.csv":                     "A1089649",
-    "hamtramck-west-air-quality.csv":                      "A1089646",
-    "oak-park-air-quality.csv":                            "A500233",
-    "windsor-air-quality.csv":                             "@5915",
-    "windsor-downtown-air-quality.csv":                    "@38",
-    "windsor-west-air-quality.csv":                        "@39",
-    "ypsilanti-air-quality.csv":                           "@5335",
+    "allen-park-air-quality.csv": "@5322",
+    "ann-arbor-northside-air-quality.csv": "A563443",
+    "ann-arbor-sugarbush-park-air-quality.csv": "A554191",
+    "ann-arbor-veterans-memorial-park-air-quality.csv": "A490177",
+    "ann-arbor-wastewater-treatment-plant-air-quality.csv": "A554200",
+    "ann-arbor-water-treatment-plant-air-quality.csv": "A554188",
+    "dearborn-air-quality.csv": "@5324",
+    "detroit-breckenridge-air-quality.csv": "A548659",
+    "detroit-southwest-air-quality.csv": "@12851",
+    "detroit-w-lafayette-air-quality.csv": "@5325",
+    "grosse-pointe-air-quality.csv": "A547657",
+    "hamtramck-east-air-quality.csv": "A1089652",
+    "hamtramck-north-air-quality.csv": "A1089643",
+    "hamtramck-south-air-quality.csv": "A1089649",
+    "hamtramck-west-air-quality.csv": "A1089646",
+    "oak-park-air-quality.csv": "A500233",
+    "windsor-air-quality.csv": "@5915",
+    "windsor-downtown-air-quality.csv": "@38",
+    "windsor-west-air-quality.csv": "@39",
+    "ypsilanti-air-quality.csv": "@5335",
 }
 
 # EPA PM2.5 24-hour AQI breakpoints: (conc_lo, conc_hi, aqi_lo, aqi_hi)
 _PM25_BREAKPOINTS = [
-    (0.0,   12.0,  0,   50),
-    (12.1,  35.4,  51,  100),
-    (35.5,  55.4,  101, 150),
-    (55.5,  150.4, 151, 200),
+    (0.0, 12.0, 0, 50),
+    (12.1, 35.4, 51, 100),
+    (35.5, 55.4, 101, 150),
+    (55.5, 150.4, 151, 200),
     (150.5, 250.4, 201, 300),
     (250.5, 350.4, 301, 400),
     (350.5, 500.4, 401, 500),
@@ -124,7 +125,9 @@ class Command(BaseCommand):
             station = stations.get(waqi_id)
             if not station:
                 self.stdout.write(
-                    self.style.WARNING(f"  No station for {waqi_id} — run load_stations first.")
+                    self.style.WARNING(
+                        f"  No station for {waqi_id} — run load_stations first."
+                    )
                 )
                 continue
 
@@ -137,9 +140,11 @@ class Command(BaseCommand):
                 f"  {label}{station.name}: {saved} saved, {skipped} skipped, {errors} errors"
             )
 
-        self.stdout.write(self.style.SUCCESS(
-            f"\nDone. {total_saved} saved, {total_skipped} skipped, {total_errors} errors."
-        ))
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"\nDone. {total_saved} saved, {total_skipped} skipped, {total_errors} errors."
+            )
+        )
 
     def _import_file(self, path: Path, station: Station, dry_run: bool):
         saved = skipped = errors = 0
@@ -201,15 +206,17 @@ class Command(BaseCommand):
         if not date_str:
             return None
 
-        station_time = datetime.strptime(date_str, "%Y/%m/%d").replace(tzinfo=timezone.utc)
+        station_time = datetime.strptime(date_str, "%Y/%m/%d").replace(
+            tzinfo=timezone.utc
+        )
 
         pollutants = {
-            "pm25":  _float(row.get("pm25", "")),
-            "pm10":  _float(row.get("pm10", "")),
+            "pm25": _float(row.get("pm25", "")),
+            "pm10": _float(row.get("pm10", "")),
             "ozone": _float(row.get("o3", "")),
-            "no2":   _float(row.get("no2", "")),
-            "so2":   _float(row.get("so2", "")),
-            "co":    _float(row.get("co", "")),
+            "no2": _float(row.get("no2", "")),
+            "so2": _float(row.get("so2", "")),
+            "co": _float(row.get("co", "")),
         }
 
         non_null = {k: v for k, v in pollutants.items() if v is not None}
@@ -219,8 +226,13 @@ class Command(BaseCommand):
         dominant = max(non_null, key=lambda k: non_null[k])
         aqi = int(max(non_null.values()))
 
-        return AQIReading(station=station, station_time=station_time,
-                          aqi=aqi, dominant_pollutant=dominant, **pollutants)
+        return AQIReading(
+            station=station,
+            station_time=station_time,
+            aqi=aqi,
+            dominant_pollutant=dominant,
+            **pollutants,
+        )
 
     @staticmethod
     def _parse_breckenridge(row: dict, station: Station):
@@ -232,10 +244,9 @@ class Command(BaseCommand):
         if not date_str:
             return None
 
-        station_time = (
-            datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-            .astimezone(timezone.utc)
-        )
+        station_time = datetime.fromisoformat(
+            date_str.replace("Z", "+00:00")
+        ).astimezone(timezone.utc)
 
         median_pm25 = _float(row.get("median", ""))
         if median_pm25 is None:

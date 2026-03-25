@@ -21,6 +21,7 @@ the WAQI API feed endpoint.
 
 All IDs and coordinates verified against the WAQI API, March 2026.
 """
+
 from django.core.management.base import BaseCommand
 
 from aqi_tracker.models import Station
@@ -36,9 +37,8 @@ STATIONS = [
         "is_primary": True,
         "wind_position": Station.WindPosition.PRIMARY,
         "notes": "Backyard GAIA A12 sensor, Core City neighborhood, 48208. "
-                 "Only community air sensor in Detroit proper.",
+        "Only community air sensor in Detroit proper.",
     },
-
     # ── Upwind (early warning — smoke arrives here before 48208) ─────────────
     {
         "waqi_id": "@5335",
@@ -100,7 +100,6 @@ STATIONS = [
         "wind_position": Station.WindPosition.UPWIND,
         "notes": "~40mi upwind. Municipal infrastructure site.",
     },
-
     # ── Crosswind (industrial comparison reference) ──────────────────────────
     {
         "waqi_id": "@5324",
@@ -111,7 +110,7 @@ STATIONS = [
         "is_primary": False,
         "wind_position": Station.WindPosition.CROSSWIND,
         "notes": "Near Ford Rouge Complex. Heavy industrial baseline — useful "
-                 "for separating regional smoke events from local industrial sources.",
+        "for separating regional smoke events from local industrial sources.",
     },
     {
         "waqi_id": "@5322",
@@ -142,8 +141,8 @@ STATIONS = [
         "is_primary": False,
         "wind_position": Station.WindPosition.CROSSWIND,
         "notes": "One of 4 sensors placed around Factory ZERO (GM EV assembly). "
-                 "Community EJ monitoring cluster. Compare with 48208 for "
-                 "cumulative industrial burden picture.",
+        "Community EJ monitoring cluster. Compare with 48208 for "
+        "cumulative industrial burden picture.",
     },
     {
         "waqi_id": "A1089649",
@@ -175,7 +174,6 @@ STATIONS = [
         "wind_position": Station.WindPosition.CROSSWIND,
         "notes": "Factory ZERO monitoring cluster — west sensor.",
     },
-
     # ── Downwind (plume confirmation — smoke arrives here after 48208) ────────
     {
         "waqi_id": "@39",
@@ -186,7 +184,7 @@ STATIONS = [
         "is_primary": False,
         "wind_position": Station.WindPosition.DOWNWIND,
         "notes": "Cross-border. Prevailing winds carry Detroit plumes SE into Windsor. "
-                 "If Windsor spikes BEFORE 48208, wind has reversed — notable event.",
+        "If Windsor spikes BEFORE 48208, wind has reversed — notable event.",
     },
     {
         "waqi_id": "@5915",
@@ -217,10 +215,9 @@ STATIONS = [
         "is_primary": False,
         "wind_position": Station.WindPosition.DOWNWIND,
         "notes": "Wealthy suburb directly downwind. Useful as socioeconomic "
-                 "comparison — does a higher-income community to the east show "
-                 "lower burden? (Likely yes, due to less local industry.)",
+        "comparison — does a higher-income community to the east show "
+        "lower burden? (Likely yes, due to less local industry.)",
     },
-
     # ── Historical only (offline EPA/DEQ stations — do not poll) ─────────────
     # Together these form a continuous official record for SW Detroit: 2018–2025.
     # Import their data via import_historical; leave active=False.
@@ -234,8 +231,8 @@ STATIONS = [
         "active": False,
         "wind_position": Station.WindPosition.PRIMARY,
         "notes": "Michigan DEQ station, offline since Feb 2020. "
-                 "Historical data: Oct 2018 – Feb 2020. "
-                 "Succeeded by Detroit Southwest (@12851).",
+        "Historical data: Oct 2018 – Feb 2020. "
+        "Succeeded by Detroit Southwest (@12851).",
     },
     {
         "waqi_id": "@12851",
@@ -247,8 +244,8 @@ STATIONS = [
         "active": False,
         "wind_position": Station.WindPosition.PRIMARY,
         "notes": "Michigan DEQ station, offline since Jun 2025. "
-                 "Historical data: Nov 2020 – Apr 2025. "
-                 "Preceded by Detroit W Lafayette (@5325).",
+        "Historical data: Nov 2020 – Apr 2025. "
+        "Preceded by Detroit W Lafayette (@5325).",
     },
 ]
 
@@ -291,7 +288,9 @@ class Command(BaseCommand):
 
     def _print_verify_urls(self):
         self.stdout.write("\nStation verification URLs (check each in browser):")
-        for station in Station.objects.exclude(wind_position=Station.WindPosition.PRIMARY):
+        for station in Station.objects.exclude(
+            wind_position=Station.WindPosition.PRIMARY
+        ):
             self.stdout.write(
                 f"  {station.name}: "
                 f"https://api.waqi.info/feed/{station.waqi_id}/?token=YOUR_TOKEN"

@@ -4,9 +4,8 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('aqi_tracker', '0002_station_and_fk'),
+        ("aqi_tracker", "0002_station_and_fk"),
     ]
 
     operations = [
@@ -17,6 +16,8 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name="aqireading",
             name="station_time",
-            field=__import__("django.db.models", fromlist=["DateTimeField"]).DateTimeField(),
+            field=__import__(
+                "django.db.models", fromlist=["DateTimeField"]
+            ).DateTimeField(),
         ),
     ]

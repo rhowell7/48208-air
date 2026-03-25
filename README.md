@@ -67,18 +67,13 @@ requests/day, sufficient for hourly polling of 18 active stations (432/day).
 
 ### 3. Configure settings
 
-```python
-# settings.py
-import os
-
-WAQI_API_TOKEN = os.environ.get("WAQI_API_TOKEN")  # recommended
-
-INSTALLED_APPS = [
-    ...
-    "aqi_tracker",
-    "django_apscheduler",  # optional, for in-process scheduling
-]
+```bash
+cp .env.example .env
+# Edit .env and set SECRET_KEY and WAQI_API_TOKEN
 ```
+
+Settings are loaded from `.env` via `python-dotenv`. See `.env.example`
+for all available options including database and allowed hosts.
 
 ### 4. Run migrations and seed stations
 
@@ -114,35 +109,26 @@ python manage.py fetch_aqi
 
 ---
 
+## Testing
+
+```bash
+make check        # lint + format check + tests (full CI check)
+make test         # tests only, with coverage report
+make lint         # ruff linter only
+make fmt          # auto-format with ruff (modifies files)
+```
+
+Tests use an in-memory SQLite database and mock all HTTP calls. Coverage
+is enforced at 83% minimum; `make test` fails if it drops below.
+
+---
+
 ## Scheduling
 
-### cron (recommended for production)
+Add a cron entry to poll all active stations every hour:
 
 ```
-# /etc/cron.d/48208-air :fetch all stations every hour
-0 * * * * www-data /path/to/venv/bin/python /path/to/manage.py fetch_aqi >> /var/log/48208-air.log 2>&1
-```
-
-### django-apscheduler (dev / single-process deployments)
-
-```python
-from apscheduler.schedulers.background import BackgroundScheduler
-from django_apscheduler.jobstores import DjangoJobStore
-from django.core.management import call_command
-
-def fetch_aqi_job():
-    call_command("fetch_aqi")
-
-scheduler = BackgroundScheduler()
-scheduler.add_jobstore(DjangoJobStore(), "default")
-scheduler.add_job(
-    fetch_aqi_job,
-    "interval",
-    hours=1,
-    id="fetch_aqi",
-    replace_existing=True,
-)
-scheduler.start()
+0 * * * * cd /path/to/48208-air && .venv/bin/python manage.py fetch_aqi >> fetch_aqi.log 2>&1
 ```
 
 ---
@@ -195,7 +181,7 @@ baseline = AQIReading.objects.filter(
 - [x] **TODO 2**:Multi-station `Station` model; regional network; `load_stations`
 - [x] **TODO 3**:Verify and fix regional station network (20 stations, real WAQI IDs + coordinates)
 - [x] **TODO 4**:Historical data import: 30,942 readings across 20 stations, back to 2014
-- [ ] **TODO 5**:Test suite (pytest; models, management commands)
+- [x] **TODO 5**:Test suite (pytest; models, management commands)
 - [ ] **TODO 6**:Dashboard: current AQI, 7-day trend, wildfire smoke highlighting,
       user-selectable primary station, upwind/downwind comparison view
 - [ ] **TODO 7**:EPA EJScreen overlay for 48208; socioeconomic context layer

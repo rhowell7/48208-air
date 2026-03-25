@@ -9,7 +9,7 @@ class Station(models.Model):
     """
 
     waqi_id = models.CharField(max_length=20, unique=True)  # e.g. "@548659"
-    name = models.CharField(max_length=100)                 # "Breckenridge, Detroit"
+    name = models.CharField(max_length=100)  # "Breckenridge, Detroit"
     city = models.CharField(max_length=50)
     latitude = models.FloatField()
     longitude = models.FloatField()
@@ -19,9 +19,9 @@ class Station(models.Model):
 
     # Rough wind relationship to primary station, for UI labeling
     class WindPosition(models.TextChoices):
-        UPWIND    = "upwind",    "Upwind (early warning)"
-        PRIMARY   = "primary",   "Primary station"
-        DOWNWIND  = "downwind",  "Downwind (plume confirmation)"
+        UPWIND = "upwind", "Upwind (early warning)"
+        PRIMARY = "primary", "Primary station"
+        DOWNWIND = "downwind", "Downwind (plume confirmation)"
         CROSSWIND = "crosswind", "Crosswind (reference)"
 
     wind_position = models.CharField(
@@ -86,11 +86,16 @@ class AQIReading(models.Model):
 
     @property
     def category(self):
-        if self.aqi <= 50:   return "Good"
-        if self.aqi <= 100:  return "Moderate"
-        if self.aqi <= 150:  return "Unhealthy for Sensitive Groups"
-        if self.aqi <= 200:  return "Unhealthy"
-        if self.aqi <= 300:  return "Very Unhealthy"
+        if self.aqi <= 50:
+            return "Good"
+        if self.aqi <= 100:
+            return "Moderate"
+        if self.aqi <= 150:
+            return "Unhealthy for Sensitive Groups"
+        if self.aqi <= 200:
+            return "Unhealthy"
+        if self.aqi <= 300:
+            return "Very Unhealthy"
         return "Hazardous"
 
     @property

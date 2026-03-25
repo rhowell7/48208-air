@@ -19,6 +19,11 @@ build/
 # Historical data CSVs — not for redistribution per WAQI data use terms
 historical_data/
 
+# Test artifacts
+.coverage
+htmlcov/
+.pytest_cache/
+
 # Django
 *.log
 local_settings.py

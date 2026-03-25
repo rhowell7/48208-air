@@ -61,6 +61,7 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
 if DATABASE_URL:
     import urllib.parse
+
     url = urllib.parse.urlparse(DATABASE_URL)
     DATABASES = {
         "default": {
@@ -81,7 +82,9 @@ else:
     }
 
 AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
+    },
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
