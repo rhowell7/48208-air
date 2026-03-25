@@ -13,6 +13,7 @@ Cron (hourly):
 """
 import logging
 import time
+import zoneinfo
 from datetime import datetime, timezone
 
 import requests
@@ -65,6 +66,8 @@ class Command(BaseCommand):
             )
             return
 
+        now = datetime.now(zoneinfo.ZoneInfo("America/Detroit")).strftime("%Y-%m-%d %H:%M %Z")
+        self.stdout.write(f"\n=== fetch_aqi {now} ===")
         self.stdout.write(f"Fetching {stations.count()} station(s)...")
         results = {"saved": 0, "skipped": 0, "errors": 0}
 
