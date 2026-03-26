@@ -9,7 +9,7 @@ class Station(models.Model):
     """
 
     waqi_id = models.CharField(max_length=20, unique=True)  # e.g. "@548659"
-    name = models.CharField(max_length=100)  # "Breckenridge, Detroit"
+    name = models.CharField(max_length=100)  # e.g. "Detroit - Breckenridge"
     city = models.CharField(max_length=50)
     latitude = models.FloatField()
     longitude = models.FloatField()

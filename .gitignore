@@ -4,6 +4,7 @@
 
 # AI assistant context — local only
 CLAUDE.md
+.claude/
 
 # Python
 __pycache__/
@@ -42,6 +43,9 @@ env/
 .idea/
 *.swp
 *.swo
+
+# Browser automation
+.playwright-cli/
 
 # OS
 .DS_Store

@@ -2,9 +2,9 @@
 
 A Django app that collects and visualizes air quality data across a regional
 sensor network centered on Detroit's Core City neighborhood (ZIP 48208), one
-of Michigan's highest pollution-burden communities.
+of Michigan's most polluted communities.
 
-![Dashboard mockup](docs/dashboard_mockup.png)
+![Dashboard Sample](docs/dashboard_sample.png)
 
 The primary sensor (`A548659`, GAIA A12) is located on Breckenridge St and
 feeds into the [World Air Quality Index](https://aqicn.org) global network.
@@ -35,7 +35,7 @@ the primary sensor:
 | Wind position | Stations | Purpose |
 |---|---|---|
 | **Upwind** | Ann Arbor (×5), Ypsilanti | Early warning, smoke arrives here before 48208 |
-| **Primary** | Breckenridge, Detroit | Home sensor, baseline + real-time |
+| **Primary** | Detroit - Breckenridge | Home sensor, baseline + real-time |
 | **Crosswind** | Dearborn, Allen Park, Oak Park, Hamtramck (×4) | Industrial comparison reference |
 | **Downwind** | Windsor (×3), Grosse Pointe | Plume confirmation, wind reversal detection |
 
@@ -106,6 +106,25 @@ python manage.py fetch_aqi --station @548659
 # Fetch all active stations
 python manage.py fetch_aqi
 ```
+
+### 7. Run the dashboard
+
+```bash
+python manage.py runserver
+```
+
+Open `http://localhost:8000/`. The dashboard shows:
+
+- **Stat bar**: current AQI, PM2.5, wildfire smoke days this year, earliest reading date
+- **Regional map**: all 20 stations as colored circles (green/yellow/orange/red/purple/maroon
+  by AQI category); click any marker for a popup; use the time scrubber below the map to
+  replay the last 7 days of hourly readings across all stations
+- **7-day chart**: individual hourly readings on a time axis, night periods shaded
+- **12-month chart**: daily averages for the past year
+- **Pollutant breakdown**: latest PM2.5, PM10, ozone, NO2, SO2 values with normalized bars
+
+Use the station dropdown (top right) to switch between any of the 20 network stations.
+The dashboard adapts to your OS light/dark preference automatically.
 
 ---
 
@@ -182,8 +201,7 @@ baseline = AQIReading.objects.filter(
 - [x] **TODO 3**:Verify and fix regional station network (20 stations, real WAQI IDs + coordinates)
 - [x] **TODO 4**:Historical data import: 30,942 readings across 20 stations, back to 2014
 - [x] **TODO 5**:Test suite (pytest; models, management commands)
-- [ ] **TODO 6**:Dashboard: current AQI, 7-day trend, wildfire smoke highlighting,
-      user-selectable primary station, upwind/downwind comparison view
+- [x] **TODO 6**:Dashboard: stat bar, regional map with 7-day time scrubber, hourly and monthly trend charts, pollutant breakdown, station switcher dropdown
 - [ ] **TODO 7**:EPA EJScreen overlay for 48208; socioeconomic context layer
 - [ ] **TODO 8**:Baseline deviation alerts: notify when readings exceed
       pre-construction norms by >2σ on PM10, NO2, or SO2

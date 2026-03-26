@@ -30,7 +30,7 @@ STATIONS = [
     # ── Primary ──────────────────────────────────────────────────────────────
     {
         "waqi_id": "A548659",
-        "name": "Breckenridge, Detroit",
+        "name": "Detroit - Breckenridge",
         "city": "Detroit",
         "latitude": 42.3565,
         "longitude": -83.0942,

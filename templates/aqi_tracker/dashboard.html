@@ -1,0 +1,396 @@
+{% extends "base.html" %}
+
+{% block title %}{{ station.name }} — AQI Monitor{% endblock %}
+
+{% block content %}
+<div class="container">
+
+  <header class="site-header">
+    <div class="header-left">
+      <h1>{{ station.name }}</h1>
+      <p class="station-meta">{{ station.city }}&nbsp;&middot;&nbsp;{{ station.waqi_id }}</p>
+    </div>
+    <div class="header-right">
+      <select class="station-select" onchange="window.location='/?station='+this.value">
+        {% for s in all_stations %}
+        <option value="{{ s.waqi_id }}"{% if s.waqi_id == station.waqi_id %} selected{% endif %}>
+          {{ s.name }}
+        </option>
+        {% endfor %}
+      </select>
+      {% if latest %}
+      <p class="updated-at">Updated {{ latest.station_time|date:"M j, Y · g:i A T" }}</p>
+      {% endif %}
+    </div>
+  </header>
+
+  <!-- Stat bar -->
+  <div class="stat-bar">
+    <div class="stat">
+      <div class="stat-label">Current AQI</div>
+      {% if latest %}
+      <div class="stat-value aqi-{{ latest.category|slugify }}">{{ latest.aqi }}</div>
+      <div class="stat-sub">{{ latest.category }}</div>
+      {% else %}
+      <div class="stat-value">—</div>
+      <div class="stat-sub">No recent data</div>
+      {% endif %}
+    </div>
+
+    <div class="stat">
+      <div class="stat-label">PM2.5</div>
+      {% if latest and latest.pm25 is not None %}
+      <div class="stat-value">{{ latest.pm25|floatformat:1 }}</div>
+      <div class="stat-sub">µg/m³</div>
+      {% else %}
+      <div class="stat-value">—</div>
+      <div class="stat-sub">µg/m³</div>
+      {% endif %}
+    </div>
+
+    <div class="stat">
+      <div class="stat-label">Smoke Days {{ current_year }}</div>
+      <div class="stat-value">{{ smoke_days }}</div>
+      <div class="stat-sub">May–Oct &middot; AQI &gt; 100, PM2.5</div>
+    </div>
+
+    <div class="stat">
+      <div class="stat-label">On Record Since</div>
+      <div class="stat-value text-value">{{ on_record_since|default:"—" }}</div>
+      <div class="stat-sub">Earliest reading</div>
+    </div>
+  </div>
+
+  <!-- Regional map -->
+  <div class="map-section">
+    <div id="map"></div>
+    <div class="scrubber-bar">
+      <span class="scrubber-label" id="scrubberLabel"></span>
+      <input type="range" id="scrubber" class="scrubber-input" min="0" step="1" value="0">
+    </div>
+  </div>
+
+  <!-- 7-day trend -->
+  <section>
+    <h2>7-Day AQI — Hourly Readings</h2>
+    <canvas id="weeklyChart" height="80"></canvas>
+  </section>
+
+  <!-- 12-month trend -->
+  <section>
+    <h2>12-Month AQI — Daily Averages</h2>
+    <canvas id="yearlyChart" height="80"></canvas>
+  </section>
+
+  <!-- Current pollutants -->
+  {% if pollutants %}
+  <section>
+    <h2>Current Pollutants</h2>
+    {% for label, value, unit, pct in pollutants %}
+    <div class="pollutant-row">
+      <span class="pollutant-label">{{ label }}</span>
+      <div class="pollutant-bar-wrap">
+        {% if pct is not None %}<div class="pollutant-bar" style="width: {{ pct }}%"></div>{% endif %}
+      </div>
+      <span class="pollutant-value">
+        {% if value is not None %}{{ value|floatformat:1 }} {{ unit }}{% else %}—{% endif %}
+      </span>
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  <footer class="site-footer">
+    <p>
+      Air quality data from <a href="https://aqicn.org" target="_blank" rel="noopener">AQICN / World Air Quality Index</a>.
+      Map &copy; <a href="https://openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors.
+    </p>
+  </footer>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ weekly_data|json_script:"weeklyData" }}
+{{ yearly_data|json_script:"yearlyData" }}
+{{ night_bands|json_script:"nightBands" }}
+{{ stations_map|json_script:"stationsMapData" }}
+{{ timeline_frames|json_script:"timelineFrames" }}
+
+<script>
+// --- Map ---
+const stationsData = JSON.parse(document.getElementById('stationsMapData').textContent);
+const timelineFrames = JSON.parse(document.getElementById('timelineFrames').textContent);
+
+const map = L.map('map').setView([42.37, -83.10], 10);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  maxZoom: 18,
+}).addTo(map);
+
+// Build markers keyed by waqi_id so the scrubber can update them
+const markersByStation = {};
+
+stationsData.forEach(function(s) {
+  const marker = L.circleMarker([s.lat, s.lng], {
+    radius: s.is_selected ? 12 : 8,
+    fillColor: s.color || '#aaa',
+    color: s.is_selected ? '#ffffff' : 'rgba(0,0,0,0.25)',
+    weight: s.is_selected ? 2.5 : 1,
+    opacity: 1,
+    fillOpacity: 0.85,
+  }).addTo(map);
+
+  function popupHtml(aqiVal, category) {
+    const aqiText = aqiVal !== null
+      ? 'AQI ' + aqiVal + ' &mdash; ' + category
+      : 'No data for this time';
+    return '<strong>' + s.name + '</strong><br>' + aqiText +
+      '<br><a href="/?station=' + encodeURIComponent(s.waqi_id) + '">View station &rarr;</a>';
+  }
+
+  marker.bindPopup(popupHtml(s.aqi, s.category));
+  marker._popupHtml = popupHtml;
+
+  if (s.is_selected) {
+    marker.openPopup();
+  }
+
+  markersByStation[s.waqi_id] = marker;
+});
+
+// --- Scrubber ---
+const scrubber = document.getElementById('scrubber');
+const scrubberLabel = document.getElementById('scrubberLabel');
+
+function applyFrame(index) {
+  const frame = timelineFrames[index];
+  scrubberLabel.textContent = frame.label;
+
+  Object.entries(markersByStation).forEach(function([waqiId, marker]) {
+    const d = frame.stations[waqiId];
+    const aqi = d ? d.aqi : null;
+    const category = d ? d.category : 'No data';
+    const color = d ? d.color : '#cccccc';
+
+    marker.setStyle({ fillColor: color });
+    marker.setPopupContent(marker._popupHtml(aqi, category));
+  });
+}
+
+if (timelineFrames.length > 0) {
+  scrubber.max = timelineFrames.length - 1;
+  scrubber.value = timelineFrames.length - 1;   // start at latest
+
+  // Show the label for the latest frame without overwriting the markers —
+  // markers already reflect the most recent reading from stationsData.
+  scrubberLabel.textContent = timelineFrames[timelineFrames.length - 1].label;
+
+  scrubber.addEventListener('input', function() {
+    applyFrame(parseInt(this.value));
+  });
+} else {
+  document.querySelector('.scrubber-bar').style.display = 'none';
+}
+
+// --- Charts ---
+const weeklyData = JSON.parse(document.getElementById('weeklyData').textContent);
+const yearlyData = JSON.parse(document.getElementById('yearlyData').textContent);
+const nightBands = JSON.parse(document.getElementById('nightBands').textContent);
+
+const gridColor = 'rgba(128, 128, 128, 0.15)';
+const tickColor = getComputedStyle(document.body).color;
+const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+// EPA AQI color scale
+function aqiColor(aqi) {
+  if (aqi <= 50)  return '#00e400';
+  if (aqi <= 100) return '#ffff00';
+  if (aqi <= 150) return '#ff7e00';
+  if (aqi <= 200) return '#ff0000';
+  if (aqi <= 300) return '#8f3f97';
+  return '#7e0023';
+}
+
+// Plugin: horizontal EPA AQI bands behind both charts
+const AQI_BANDS = [
+  { min: 0,   max: 50,  color: 'rgba(0,228,0,0.10)' },
+  { min: 50,  max: 100, color: 'rgba(255,255,0,0.12)' },
+  { min: 100, max: 150, color: 'rgba(255,126,0,0.12)' },
+  { min: 150, max: 200, color: 'rgba(255,0,0,0.12)' },
+  { min: 200, max: 300, color: 'rgba(143,63,151,0.12)' },
+  { min: 300, max: 500, color: 'rgba(126,0,35,0.12)' },
+];
+
+const aqiBandPlugin = {
+  id: 'aqiBands',
+  beforeDraw(chart) {
+    const { ctx, chartArea, scales } = chart;
+    if (!chartArea || !scales.y) return;
+    ctx.save();
+    AQI_BANDS.forEach(function(band) {
+      const y1 = scales.y.getPixelForValue(band.min);
+      const y2 = scales.y.getPixelForValue(band.max);
+      const top    = Math.max(chartArea.top,    Math.min(y1, y2));
+      const bottom = Math.min(chartArea.bottom, Math.max(y1, y2));
+      if (bottom > top) {
+        ctx.fillStyle = band.color;
+        ctx.fillRect(chartArea.left, top, chartArea.right - chartArea.left, bottom - top);
+      }
+    });
+    ctx.restore();
+  }
+};
+
+// Plugin: shade 9pm–6am Detroit time behind the weekly chart
+const nightShadingPlugin = {
+  id: 'nightShading',
+  beforeDraw(chart) {
+    const { ctx, chartArea, scales } = chart;
+    if (!chartArea || !scales.x) return;
+    ctx.save();
+    ctx.fillStyle = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,40,0.06)';
+    nightBands.forEach(function(band) {
+      const x1 = scales.x.getPixelForValue(new Date(band.from).getTime());
+      const x2 = scales.x.getPixelForValue(new Date(band.to).getTime());
+      const left  = Math.max(chartArea.left,  Math.min(x1, x2));
+      const right = Math.min(chartArea.right, Math.max(x1, x2));
+      if (right > left) {
+        ctx.fillRect(left, chartArea.top, right - left, chartArea.bottom - chartArea.top);
+      }
+    });
+    ctx.restore();
+  }
+};
+
+// Weekly chart — individual readings on a time axis
+new Chart(document.getElementById('weeklyChart'), {
+  type: 'line',
+  data: {
+    datasets: [{
+      label: 'AQI',
+      data: weeklyData,   // [{x: ISO timestamp, y: aqi}]
+      borderColor: '#888',
+      segment: { borderColor: ctx => aqiColor(ctx.p0.parsed.y) },
+      pointBackgroundColor: weeklyData.map(d => aqiColor(d.y)),
+      pointBorderColor: 'transparent',
+      backgroundColor: 'transparent',
+      fill: false,
+      tension: 0.3,
+      pointRadius: 3,
+      pointHoverRadius: 6,
+    }],
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        mode: 'index',
+        intersect: false,
+        callbacks: {
+          title: function(items) {
+            return new Date(items[0].parsed.x).toLocaleString('en-US', {
+              timeZone: 'America/Detroit',
+              month: 'short', day: 'numeric',
+              hour: 'numeric', minute: '2-digit',
+            });
+          },
+        },
+      },
+    },
+    scales: {
+      x: {
+        type: 'time',
+        time: { unit: 'hour', stepSize: 6 },
+        ticks: {
+          color: tickColor,
+          maxRotation: 0,
+          callback: function(value, index, ticks) {
+            const d = new Date(value);
+            // Detect midnight crossing in Detroit time: prev tick's local hour > this one's
+            const localHour = parseInt(
+              d.toLocaleString('en-US', { timeZone: 'America/Detroit', hour: 'numeric', hour12: false }), 10
+            );
+            if (index > 0) {
+              const prevD = new Date(ticks[index - 1].value);
+              const prevHour = parseInt(
+                prevD.toLocaleString('en-US', { timeZone: 'America/Detroit', hour: 'numeric', hour12: false }), 10
+              );
+              if (prevHour > localHour) {
+                // Crossed midnight — show date
+                return d.toLocaleString('en-US', { timeZone: 'America/Detroit', month: 'short', day: 'numeric' });
+              }
+            }
+            if (index === 0) {
+              return d.toLocaleString('en-US', { timeZone: 'America/Detroit', month: 'short', day: 'numeric' });
+            }
+            return d.toLocaleString('en-US', { timeZone: 'America/Detroit', hour: 'numeric', hour12: true });
+          },
+        },
+        grid: { display: false },
+      },
+      y: {
+        min: 0,
+        grid: { color: gridColor },
+        ticks: { color: tickColor },
+      },
+    },
+  },
+  plugins: [aqiBandPlugin, nightShadingPlugin],
+});
+
+// Yearly chart — daily averages on a time axis (same format as weekly)
+// Monthly tick labels but daily data points so smoke spikes stay visible.
+new Chart(document.getElementById('yearlyChart'), {
+  type: 'line',
+  data: {
+    datasets: [{
+      label: 'Daily avg AQI',
+      data: yearlyData,   // [{x: 'YYYY-MM-DD', y: aqi}]
+      borderColor: '#888',
+      segment: { borderColor: ctx => aqiColor(ctx.p0.parsed.y) },
+      pointBackgroundColor: yearlyData.map(d => aqiColor(d.y)),
+      pointBorderColor: 'transparent',
+      backgroundColor: 'transparent',
+      fill: false,
+      tension: 0.1,
+      pointRadius: 2,
+      pointHoverRadius: 4,
+    }],
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        mode: 'index',
+        intersect: false,
+        callbacks: {
+          title: function(items) {
+            return new Date(items[0].parsed.x).toLocaleString('en-US', {
+              timeZone: 'America/Detroit',
+              month: 'short', day: 'numeric', year: 'numeric',
+            });
+          },
+        },
+      },
+    },
+    scales: {
+      x: {
+        type: 'time',
+        time: { unit: 'month' },
+        ticks: { color: tickColor, maxRotation: 0 },
+        grid: { display: false },
+      },
+      y: {
+        min: 0,
+        grid: { color: gridColor },
+        ticks: { color: tickColor },
+      },
+    },
+  },
+  plugins: [aqiBandPlugin],
+});
+</script>
+{% endblock %}

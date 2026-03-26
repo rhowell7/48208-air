@@ -1,9 +1,8 @@
 # config/urls.py
 from django.contrib import admin
-from django.urls import path
+from django.urls import include, path
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    # TODO Sprint 4: uncomment when dashboard views are built
-    # path("", include("aqi_tracker.urls")),
+    path("", include("aqi_tracker.urls")),
 ]
