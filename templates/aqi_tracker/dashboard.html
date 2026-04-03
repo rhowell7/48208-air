@@ -1,9 +1,15 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}{{ station.name }} — AQI Monitor{% endblock %}
 
 {% block content %}
 <div class="container">
+
+  <div class="intro-bar">
+    <p>Open-Source Air Quality Monitoring for Southeast Michigan</p>
+    <p>Hourly readings from {{ all_stations.count }} stations, via the <a href="https://aqicn.org" target="_blank" rel="noopener">AQICN</a> sensor network</p>
+  </div>
 
   <header class="site-header">
     <div class="header-left">
@@ -50,7 +56,7 @@
 
     <div class="stat">
       <div class="stat-label">Unhealthy Air Days {{ current_year }}</div>
-      <div class="stat-value">{{ unhealthy_days }}</div>
+      <div class="stat-value"><a href="#peak-aqi" class="stat-link">{{ unhealthy_days }}</a></div>
       <div class="stat-sub">Any reading AQI &gt; 100</div>
     </div>
 
@@ -82,6 +88,12 @@
     <canvas id="yearlyChart" height="80"></canvas>
   </section>
 
+  <!-- 12-month daily peak -->
+  <section id="peak-aqi">
+    <h2>12-Month AQI — Daily Peak Readings</h2>
+    <canvas id="peakChart" height="80"></canvas>
+  </section>
+
   <!-- Current pollutants -->
   {% if pollutants %}
   <section>
@@ -100,7 +112,18 @@
   </section>
   {% endif %}
 
+  <!-- AQI reference scale -->
+  <section class="aqi-reference">
+    <h2>AQI Reference Scale</h2>
+    <img src="{% static 'aqi_tracker/img/air_quality_levels.png' %}" alt="AQI scale: 0-50 Good, 51-100 Moderate, 101-150 Unhealthy for Sensitive Groups, 151-200 Unhealthy, 201-300 Very Unhealthy, 300+ Hazardous" class="aqi-scale-img">
+  </section>
+
   <footer class="site-footer">
+    <p>
+      To learn more about air quality and pollution, see the
+      <a href="https://en.wikipedia.org/wiki/Air_quality" target="_blank" rel="noopener">Wikipedia Air Quality page</a>
+      or the <a href="https://www.airnow.gov/aqi/aqi-basics/" target="_blank" rel="noopener">AirNow Guide to Air Quality</a>.
+    </p>
     <p>
       Air quality data from <a href="https://aqicn.org" target="_blank" rel="noopener">AQICN / World Air Quality Index</a>.
       Map &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>.
@@ -113,6 +136,7 @@
 {% block scripts %}
 {{ weekly_data|json_script:"weeklyData" }}
 {{ yearly_data|json_script:"yearlyData" }}
+{{ peak_data|json_script:"peakData" }}
 {{ night_bands|json_script:"nightBands" }}
 {{ stations_map|json_script:"stationsMapData" }}
 {{ timeline_frames|json_script:"timelineFrames" }}
@@ -352,6 +376,26 @@ new Chart(document.getElementById('weeklyChart'), {
   plugins: [aqiBandPlugin, nightShadingPlugin],
 });
 
+// Plugin: dashed horizontal line at AQI 100 (Unhealthy for Sensitive Groups threshold)
+const thresholdLinePlugin = {
+  id: 'thresholdLine',
+  afterDraw(chart) {
+    const { ctx, chartArea, scales } = chart;
+    if (!chartArea || !scales.y) return;
+    const y = scales.y.getPixelForValue(100);
+    if (y < chartArea.top || y > chartArea.bottom) return;
+    ctx.save();
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(255, 126, 0, 0.7)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.moveTo(chartArea.left, y);
+    ctx.lineTo(chartArea.right, y);
+    ctx.stroke();
+    ctx.restore();
+  }
+};
+
 // Yearly chart — daily averages on a time axis (same format as weekly)
 // Monthly tick labels but daily data points so smoke spikes stay visible.
 new Chart(document.getElementById('yearlyChart'), {
@@ -403,6 +447,59 @@ new Chart(document.getElementById('yearlyChart'), {
     },
   },
   plugins: [aqiBandPlugin],
+});
+
+// Peak chart — daily maximums, same axes as yearly, adds threshold line at 100
+const peakData = JSON.parse(document.getElementById('peakData').textContent);
+new Chart(document.getElementById('peakChart'), {
+  type: 'line',
+  data: {
+    datasets: [{
+      label: 'Daily peak AQI',
+      data: peakData,
+      borderColor: '#888',
+      segment: { borderColor: ctx => aqiColor(ctx.p0.parsed.y) },
+      pointBackgroundColor: peakData.map(d => aqiColor(d.y)),
+      pointBorderColor: 'transparent',
+      backgroundColor: 'transparent',
+      fill: false,
+      tension: 0.1,
+      pointRadius: 2,
+      pointHoverRadius: 4,
+    }],
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        mode: 'index',
+        intersect: false,
+        callbacks: {
+          title: function(items) {
+            return new Date(items[0].parsed.x).toLocaleString('en-US', {
+              timeZone: 'America/Detroit',
+              month: 'short', day: 'numeric', year: 'numeric',
+            });
+          },
+        },
+      },
+    },
+    scales: {
+      x: {
+        type: 'time',
+        time: { unit: 'month' },
+        ticks: { color: tickColor, maxRotation: 0 },
+        grid: { display: false },
+      },
+      y: {
+        min: 0,
+        grid: { color: gridColor },
+        ticks: { color: tickColor },
+      },
+    },
+  },
+  plugins: [aqiBandPlugin, thresholdLinePlugin],
 });
 </script>
 {% endblock %}

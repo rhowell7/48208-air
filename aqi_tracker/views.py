@@ -98,6 +98,23 @@ def _timeline_frames(tz, days=7):
     return frames
 
 
+def _yearly_daily_maxes(readings_qs, tz):
+    """Daily peak AQI for the past year as {x: date ISO, y: max_aqi}.
+
+    Companion to _yearly_daily_averages. Shows the worst single reading each
+    day, which is more sensitive to short-duration events (garbage burning,
+    passing trucks, industrial incidents) than the daily average.
+    """
+    cutoff = date.today() - timedelta(days=365)
+    buckets = defaultdict(list)
+    for r in readings_qs.filter(station_time__date__gte=cutoff).order_by(
+        "station_time"
+    ):
+        key = r.station_time.astimezone(tz).date().isoformat()
+        buckets[key].append(r.aqi)
+    return [{"x": k, "y": max(v)} for k, v in sorted(buckets.items())]
+
+
 def _yearly_daily_averages(readings_qs, tz):
     """Daily averages for the past year as {x: date ISO, y: avg_aqi}.
 
@@ -186,6 +203,7 @@ def dashboard(request):
         "current_year": current_year,
         "weekly_data": weekly_data,
         "yearly_data": yearly_data,
+        "peak_data": _yearly_daily_maxes(readings, DETROIT_TZ),
         "night_bands": night_bands,
         "stations_map": stations_map,
         "timeline_frames": _timeline_frames(DETROIT_TZ),

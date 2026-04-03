@@ -1,8 +1,8 @@
 # 48208-air
 
-A Django app that collects and visualizes air quality data across a regional
-sensor network centered on Detroit's Core City neighborhood (ZIP 48208), one
-of Michigan's most polluted communities.
+A Django app that collects and visualizes air quality data around Southeast Michigan using open source air sensors.
+
+**Live site: [breckenridgeblockclub.com](https://breckenridgeblockclub.com)**
 
 ![Dashboard Sample](docs/dashboard_sample.png)
 
@@ -115,7 +115,7 @@ python manage.py runserver
 
 Open `http://localhost:8000/`. The dashboard shows:
 
-- **Stat bar**: current AQI, PM2.5, wildfire smoke days this year, earliest reading date
+- **Stat bar**: current AQI, PM2.5, unhealthy air days this year (AQI > 100), earliest reading date
 - **Regional map**: all 20 stations as colored circles (green/yellow/orange/red/purple/maroon
   by AQI category); click any marker for a popup; use the time scrubber below the map to
   replay the last 7 days of hourly readings across all stations
