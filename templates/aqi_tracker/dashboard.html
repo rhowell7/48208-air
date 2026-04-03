@@ -103,7 +103,7 @@
   <footer class="site-footer">
     <p>
       Air quality data from <a href="https://aqicn.org" target="_blank" rel="noopener">AQICN / World Air Quality Index</a>.
-      Map &copy; <a href="https://openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors.
+      Map &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>.
     </p>
   </footer>
 
@@ -123,9 +123,10 @@ const stationsData = JSON.parse(document.getElementById('stationsMapData').textC
 const timelineFrames = JSON.parse(document.getElementById('timelineFrames').textContent);
 
 const map = L.map('map').setView([42.37, -83.10], 10);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-  maxZoom: 18,
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  subdomains: 'abcd',
+  maxZoom: 19,
 }).addTo(map);
 
 // Build markers keyed by waqi_id so the scrubber can update them
@@ -164,15 +165,28 @@ const scrubber = document.getElementById('scrubber');
 const scrubberLabel = document.getElementById('scrubberLabel');
 
 function applyFrame(index) {
+  const atLatest = index === timelineFrames.length - 1;
   const frame = timelineFrames[index];
-  scrubberLabel.textContent = frame.label;
+
+  // At the rightmost position use the server-rendered current snapshot rather
+  // than the latest time bucket. WAQI timestamps readings by when the station
+  // measured (e.g. :57), so a :00 cron fetch returns data that lands in the
+  // previous hour's bucket — leaving the newest bucket sparse.
+  scrubberLabel.textContent = atLatest ? 'Current' : frame.label;
 
   Object.entries(markersByStation).forEach(function([waqiId, marker]) {
-    const d = frame.stations[waqiId];
-    const aqi = d ? d.aqi : null;
-    const category = d ? d.category : 'No data';
-    const color = d ? d.color : '#cccccc';
-
+    let aqi, category, color;
+    if (atLatest) {
+      const current = stationsData.find(function(s) { return s.waqi_id === waqiId; });
+      aqi      = current ? current.aqi      : null;
+      category = current ? current.category : 'No data';
+      color    = current ? current.color    : '#cccccc';
+    } else {
+      const d  = frame.stations[waqiId];
+      aqi      = d ? d.aqi      : null;
+      category = d ? d.category : 'No data';
+      color    = d ? d.color    : '#cccccc';
+    }
     marker.setStyle({ fillColor: color });
     marker.setPopupContent(marker._popupHtml(aqi, category));
   });
@@ -182,9 +196,7 @@ if (timelineFrames.length > 0) {
   scrubber.max = timelineFrames.length - 1;
   scrubber.value = timelineFrames.length - 1;   // start at latest
 
-  // Show the label for the latest frame without overwriting the markers —
-  // markers already reflect the most recent reading from stationsData.
-  scrubberLabel.textContent = timelineFrames[timelineFrames.length - 1].label;
+  scrubberLabel.textContent = 'Current';
 
   scrubber.addEventListener('input', function() {
     applyFrame(parseInt(this.value));

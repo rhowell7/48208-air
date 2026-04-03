@@ -94,7 +94,7 @@ class Command(BaseCommand):
 
     def _fetch_station(self, station, token, dry_run, results):
         url = WAQI_FEED_URL.format(station.waqi_id)
-        response = requests.get(url, params={"token": token}, timeout=10)
+        response = requests.get(url, params={"token": token}, timeout=30)
         response.raise_for_status()
 
         data = response.json()
