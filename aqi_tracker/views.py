@@ -134,12 +134,10 @@ def dashboard(request):
     )
 
     current_year = date.today().year
-    smoke_days = (
+    unhealthy_days = (
         readings.filter(
             station_time__year=current_year,
-            station_time__month__in=range(5, 11),
             aqi__gt=100,
-            dominant_pollutant="pm25",
         )
         .dates("station_time", "day")
         .count()
@@ -184,7 +182,7 @@ def dashboard(request):
         "station": station,
         "latest": latest,
         "on_record_since": on_record_since,
-        "smoke_days": smoke_days,
+        "unhealthy_days": unhealthy_days,
         "current_year": current_year,
         "weekly_data": weekly_data,
         "yearly_data": yearly_data,
