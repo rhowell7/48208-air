@@ -62,7 +62,9 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 # Database
-# Falls back to SQLite for quick local dev — use PostgreSQL for the Pi
+# SQLite is adequate at this scale (one cron writer, low read traffic).
+# Switch to PostgreSQL when TODO 8 (StdDev baseline alerts) is implemented,
+# as SQLite doesn't support StdDev() aggregation. Set DATABASE_URL in .env.
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
 if DATABASE_URL:
@@ -112,7 +114,9 @@ STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
-    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"
+    },
 }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

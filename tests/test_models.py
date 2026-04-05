@@ -6,7 +6,7 @@ from aqi_tracker.models import AQIReading, Station
 @pytest.mark.django_db
 class TestStation:
     def test_str_primary(self, primary_station):
-        assert str(primary_station) == "Detroit - Breckenridge (A548659) [PRIMARY]"
+        assert str(primary_station) == "Detroit - Core City (A548659) [PRIMARY]"
 
     def test_str_non_primary(self, upwind_station):
         assert str(upwind_station) == "Ypsilanti (@5335)"

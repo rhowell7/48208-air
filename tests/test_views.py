@@ -1,15 +1,19 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 import pytest
 
 from aqi_tracker.models import AQIReading
 
+_today = date.today()
 
-def make_reading(station, aqi, *, month=3, day=25, hour=12, **kwargs):
+
+def make_reading(
+    station, aqi, *, month=_today.month, day=_today.day, hour=12, **kwargs
+):
     return AQIReading.objects.create(
         station=station,
         aqi=aqi,
-        station_time=datetime(2026, month, day, hour, 0, tzinfo=timezone.utc),
+        station_time=datetime(_today.year, month, day, hour, 0, tzinfo=timezone.utc),
         **kwargs,
     )
 
@@ -52,30 +56,23 @@ class TestDashboardView:
         response = client.get("/")
         assert response.context["on_record_since"] == "Jun 2014"
 
-    def test_smoke_days_counts_qualifying_days(self, client, primary_station):
-        # Counts: summer month, AQI > 100, pm25 dominant
-        make_reading(primary_station, 150, month=7, day=4, dominant_pollutant="pm25")
-        # Does not count: wrong pollutant
-        make_reading(primary_station, 150, month=7, day=5, dominant_pollutant="o3")
+    def test_unhealthy_days_counts_qualifying_days(self, client, primary_station):
+        # Counts: any AQI > 100, any pollutant, any month in current year
+        make_reading(primary_station, 150, month=3, day=1)
+        make_reading(primary_station, 150, month=7, day=4)
         # Does not count: AQI too low
-        make_reading(primary_station, 80, month=7, day=6, dominant_pollutant="pm25")
-        # Does not count: outside fire season
-        make_reading(primary_station, 150, month=1, day=4, dominant_pollutant="pm25")
+        make_reading(primary_station, 80, month=7, day=5)
         response = client.get("/")
-        assert response.context["smoke_days"] == 1
+        assert response.context["unhealthy_days"] == 2
 
-    def test_smoke_days_counts_distinct_days_not_readings(
+    def test_unhealthy_days_counts_distinct_days_not_readings(
         self, client, primary_station
     ):
-        # Two readings on the same day should count as one smoke day
-        make_reading(
-            primary_station, 150, month=7, day=4, hour=6, dominant_pollutant="pm25"
-        )
-        make_reading(
-            primary_station, 160, month=7, day=4, hour=18, dominant_pollutant="pm25"
-        )
+        # Two readings on the same day should count as one unhealthy day
+        make_reading(primary_station, 150, month=7, day=4, hour=6)
+        make_reading(primary_station, 160, month=7, day=4, hour=18)
         response = client.get("/")
-        assert response.context["smoke_days"] == 1
+        assert response.context["unhealthy_days"] == 1
 
     def test_map_contains_all_active_stations(
         self, client, primary_station, upwind_station

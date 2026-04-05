@@ -57,6 +57,13 @@ FILE_TO_WAQI_ID = {
     "windsor-downtown-air-quality.csv": "@38",
     "windsor-west-air-quality.csv": "@39",
     "ypsilanti-air-quality.csv": "@5335",
+    "chatham-ontario-canada-air-quality.csv": "@5",
+    "flint-michigan-air-quality.csv": "@5326",
+    "lansing-michigan-air-quality.csv": "@5330",
+    "new-haven-michigan-air-quality.csv": "A493741",
+    "port-huron-michigan-air-quality.csv": "@5331",
+    "sarnia-ontario-canada-air-quality.csv": "@28",
+    "tecumseh-michigan-air-quality.csv": "@5334",
 }
 
 # EPA PM2.5 24-hour AQI breakpoints: (conc_lo, conc_hi, aqi_lo, aqi_hi)

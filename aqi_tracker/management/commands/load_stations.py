@@ -30,7 +30,7 @@ STATIONS = [
     # ── Primary ──────────────────────────────────────────────────────────────
     {
         "waqi_id": "A548659",
-        "name": "Detroit - Breckenridge",
+        "name": "Detroit - Core City",
         "city": "Detroit",
         "latitude": 42.3565,
         "longitude": -83.0942,
@@ -217,6 +217,87 @@ STATIONS = [
         "notes": "Wealthy suburb directly downwind. Useful as socioeconomic "
         "comparison — does a higher-income community to the east show "
         "lower burden? (Likely yes, due to less local industry.)",
+    },
+    # ── Extended regional network ────────────────────────────────────────────
+    # Upwind (farther west/southwest — regional smoke origin tracking)
+    {
+        "waqi_id": "@5334",
+        "name": "Tecumseh",
+        "city": "Tecumseh",
+        "latitude": 42.0028,
+        "longitude": -83.9443,
+        "is_primary": False,
+        "wind_position": Station.WindPosition.UPWIND,
+        "notes": "~50mi SW of 48208. Useful for tracking regional pollution "
+        "moving NE before it reaches the Detroit metro.",
+    },
+    {
+        "waqi_id": "@5326",
+        "name": "Flint",
+        "city": "Flint",
+        "latitude": 43.0125,
+        "longitude": -83.6875,
+        "is_primary": False,
+        "wind_position": Station.WindPosition.UPWIND,
+        "notes": "~65mi NW of 48208. Northwest approach for smoke plumes; "
+        "also an EJ reference city for industrial air quality comparison.",
+    },
+    {
+        "waqi_id": "@5330",
+        "name": "Lansing",
+        "city": "Lansing",
+        "latitude": 42.7325,
+        "longitude": -84.5555,
+        "is_primary": False,
+        "wind_position": Station.WindPosition.UPWIND,
+        "notes": "~90mi WNW of 48208. Far upwind reference; state capital.",
+    },
+    # Downwind (farther east/northeast — plume confirmation beyond Windsor)
+    {
+        "waqi_id": "A493741",
+        "name": "New Haven",
+        "city": "New Haven",
+        "latitude": 42.7294,
+        "longitude": -82.8027,
+        "is_primary": False,
+        "wind_position": Station.WindPosition.DOWNWIND,
+        "notes": "Macomb County, ~35mi NE of 48208. Michigan DEQ sensor. "
+        "Confirms plumes that have passed through the Detroit metro.",
+    },
+    {
+        "waqi_id": "@5331",
+        "name": "Port Huron",
+        "city": "Port Huron",
+        "latitude": 42.9706,
+        "longitude": -82.4249,
+        "is_primary": False,
+        "wind_position": Station.WindPosition.DOWNWIND,
+        "notes": "~60mi NE of 48208 at Lake Huron. Far downwind terminus "
+        "for tracking plume extent.",
+    },
+    {
+        "waqi_id": "@28",
+        "name": "Sarnia",
+        "city": "Sarnia, ON",
+        "latitude": 42.9745,
+        "longitude": -82.4060,
+        "is_primary": False,
+        "wind_position": Station.WindPosition.DOWNWIND,
+        "notes": "Ontario, directly across the St. Clair River from Port Huron. "
+        "Home to Chemical Valley — one of Canada's largest petrochemical "
+        "clusters. SO2 and NO2 here can be locally sourced, not just "
+        "Detroit plumes; interpret with care.",
+    },
+    {
+        "waqi_id": "@5",
+        "name": "Chatham",
+        "city": "Chatham, ON",
+        "latitude": 42.4048,
+        "longitude": -82.1910,
+        "is_primary": False,
+        "wind_position": Station.WindPosition.DOWNWIND,
+        "notes": "Ontario, ~65mi ESE of 48208. Far downwind; useful for "
+        "confirming whether Detroit plumes are reaching rural SW Ontario.",
     },
     # ── Historical only (offline EPA/DEQ stations — do not poll) ─────────────
     # Together these form a continuous official record for SW Detroit: 2018–2025.

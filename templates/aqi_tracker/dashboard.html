@@ -128,6 +128,9 @@
       Air quality data from <a href="https://aqicn.org" target="_blank" rel="noopener">AQICN / World Air Quality Index</a>.
       Map &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>.
     </p>
+    <p>
+      Open source. <a href="https://github.com/rhowell7/48208-air" target="_blank" rel="noopener">View on GitHub</a>.
+    </p>
   </footer>
 
 </div>
@@ -299,6 +302,26 @@ const nightShadingPlugin = {
   }
 };
 
+// Plugin: dashed horizontal line at AQI 100 (Unhealthy for Sensitive Groups threshold)
+const thresholdLinePlugin = {
+  id: 'thresholdLine',
+  afterDraw(chart) {
+    const { ctx, chartArea, scales } = chart;
+    if (!chartArea || !scales.y) return;
+    const y = scales.y.getPixelForValue(100);
+    if (y < chartArea.top || y > chartArea.bottom) return;
+    ctx.save();
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(255, 126, 0, 0.7)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.moveTo(chartArea.left, y);
+    ctx.lineTo(chartArea.right, y);
+    ctx.stroke();
+    ctx.restore();
+  }
+};
+
 // Weekly chart — individual readings on a time axis
 new Chart(document.getElementById('weeklyChart'), {
   type: 'line',
@@ -373,28 +396,8 @@ new Chart(document.getElementById('weeklyChart'), {
       },
     },
   },
-  plugins: [aqiBandPlugin, nightShadingPlugin],
+  plugins: [aqiBandPlugin, nightShadingPlugin, thresholdLinePlugin],
 });
-
-// Plugin: dashed horizontal line at AQI 100 (Unhealthy for Sensitive Groups threshold)
-const thresholdLinePlugin = {
-  id: 'thresholdLine',
-  afterDraw(chart) {
-    const { ctx, chartArea, scales } = chart;
-    if (!chartArea || !scales.y) return;
-    const y = scales.y.getPixelForValue(100);
-    if (y < chartArea.top || y > chartArea.bottom) return;
-    ctx.save();
-    ctx.beginPath();
-    ctx.strokeStyle = 'rgba(255, 126, 0, 0.7)';
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([4, 4]);
-    ctx.moveTo(chartArea.left, y);
-    ctx.lineTo(chartArea.right, y);
-    ctx.stroke();
-    ctx.restore();
-  }
-};
 
 // Yearly chart — daily averages on a time axis (same format as weekly)
 // Monthly tick labels but daily data points so smoke spikes stay visible.
@@ -446,7 +449,7 @@ new Chart(document.getElementById('yearlyChart'), {
       },
     },
   },
-  plugins: [aqiBandPlugin],
+  plugins: [aqiBandPlugin, thresholdLinePlugin],
 });
 
 // Peak chart — daily maximums, same axes as yearly, adds threshold line at 100

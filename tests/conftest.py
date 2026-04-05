@@ -6,7 +6,7 @@ from aqi_tracker.models import Station
 def primary_station(db):
     return Station.objects.create(
         waqi_id="A548659",
-        name="Detroit - Breckenridge",
+        name="Detroit - Core City",
         city="Detroit",
         latitude=42.3565,
         longitude=-83.0942,
