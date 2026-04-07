@@ -71,14 +71,15 @@ if DATABASE_URL:
     import urllib.parse
 
     url = urllib.parse.urlparse(DATABASE_URL)
+    query = urllib.parse.parse_qs(url.query)
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
             "NAME": url.path.lstrip("/"),
             "USER": url.username,
             "PASSWORD": url.password,
-            "HOST": url.hostname,
-            "PORT": url.port or 5432,
+            "HOST": url.hostname or query.get("host", [""])[0],
+            "PORT": url.port or "",
         }
     }
 else:

@@ -228,6 +228,37 @@ Tests use an in-memory SQLite database and mock all HTTP calls. Coverage is enfo
 
 ---
 
+## Docker
+
+Use this `docker-compose.yaml`:
+
+```yaml
+services:
+  app:
+    image: ghcr.io/rhowell7/48208-air:latest
+    environment:
+      ALLOWED_HOSTS: your-hostname
+      WAQI_API_TOKEN: your-waqi-token
+      CLOUDFLARED_TOKEN: your-cloudflare-tunnel-token  # optional: enables cloudflared
+      POLL_INTERVAL_SECONDS: "3600"  # optional: defaults to hourly polling
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"  # optional: only needed for direct host access/local testing
+    volumes:
+      - /path/to/volume:/var/lib/postgresql/data
+```
+
+To pull and start the published image:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+To build locally from this repo instead, replace `image:` with `build: .` and run `docker compose up --build -d`.
+
+---
+
 ## Data notes
 
 - `station_time` is stored in UTC; convert to `America/Detroit` for display
