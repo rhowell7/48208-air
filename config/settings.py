@@ -14,11 +14,11 @@ DEBUG = os.environ.get("DEBUG", "True") == "True"
 
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
-# Cloudflare Tunnel terminates TLS at the edge, so Django sees plain HTTP internally.
-# List tunnel/custom domains here so Django accepts their CSRF tokens.
-CSRF_TRUSTED_ORIGINS = [
-    f"https://{h}" for h in ALLOWED_HOSTS if h not in ("localhost", "127.0.0.1")
-]
+if os.environ.get("TRUST_PROXY_HEADERS", "False") == "True":
+    # Respect proxy-provided host/scheme headers when Django
+    # is behind a trusted reverse proxy such as Cloudflare Tunnel.
+    USE_X_FORWARDED_HOST = True
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 INSTALLED_APPS = [
     "django.contrib.admin",

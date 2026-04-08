@@ -56,6 +56,10 @@ gosu postgres createdb -h "$POSTGRES_SOCKET_DIR" -O "$POSTGRES_USER" "$POSTGRES_
 
 export DATABASE_URL="postgres://${POSTGRES_USER}@/${POSTGRES_DB}?host=${POSTGRES_SOCKET_DIR}"
 
+if [ -n "${CLOUDFLARED_TOKEN:-}" ] && [ -z "${TRUST_PROXY_HEADERS:-}" ]; then
+  export TRUST_PROXY_HEADERS="True"
+fi
+
 if [ -z "${SECRET_KEY:-}" ]; then
   export SECRET_KEY="$(gosu appuser python -c \
     'from django.core.management import utils; print(utils.get_random_secret_key(), end="")'

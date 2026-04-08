@@ -240,6 +240,7 @@ services:
       ALLOWED_HOSTS: your-hostname
       WAQI_API_TOKEN: your-waqi-token
       CLOUDFLARED_TOKEN: your-cloudflare-tunnel-token  # optional: enables cloudflared
+      TRUST_PROXY_HEADERS: "True"  # optional: set by default when cloudflared is configured
       POLL_INTERVAL_SECONDS: "3600"  # optional: defaults to hourly polling
     restart: unless-stopped
     ports:
