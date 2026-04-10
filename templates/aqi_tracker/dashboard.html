@@ -6,15 +6,11 @@
 {% block content %}
 <div class="container">
 
-  <div class="intro-bar">
-    <p>Open-Source Air Quality Monitoring for Southeast Michigan</p>
-    <p>Hourly readings from {{ all_stations.count }} stations, via the <a href="https://aqicn.org" target="_blank" rel="noopener">AQICN</a> sensor network</p>
-  </div>
-
   <header class="site-header">
     <div class="header-left">
       <h1>{{ station.name }}</h1>
-      <p class="station-meta">{{ station.city }}&nbsp;&middot;&nbsp;{{ station.waqi_id }}</p>
+      <p class="site-tagline">Air quality monitoring for Southeast Michigan &middot; {{ all_stations.count }} stations</p>
+      <p class="station-meta">{{ station.city }}&nbsp;&middot;&nbsp;{{ station.waqi_id }}{% if on_record_since %}&nbsp;&middot;&nbsp;Since {{ on_record_since }}{% endif %}</p>
     </div>
     <div class="header-right">
       <select class="station-select" onchange="window.location='/?station='+this.value">
@@ -27,6 +23,10 @@
       {% if latest %}
       <p class="updated-at">Updated {{ latest.station_time|date:"M j, Y · g:i A T" }}</p>
       {% endif %}
+      <button class="theme-toggle" id="themeToggle" aria-label="Toggle color theme">
+        <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
     </div>
   </header>
 
@@ -60,11 +60,6 @@
       <div class="stat-sub">Any reading AQI &gt; 100</div>
     </div>
 
-    <div class="stat">
-      <div class="stat-label">On Record Since</div>
-      <div class="stat-value text-value">{{ on_record_since|default:"—" }}</div>
-      <div class="stat-sub">Earliest reading</div>
-    </div>
   </div>
 
   <!-- Regional map -->
@@ -72,25 +67,28 @@
     <div id="map"></div>
     <div class="scrubber-bar">
       <span class="scrubber-label" id="scrubberLabel"></span>
-      <input type="range" id="scrubber" class="scrubber-input" min="0" step="1" value="0">
+      <div class="scrubber-track">
+        <input type="range" id="scrubber" class="scrubber-input" min="0" step="1" value="0">
+        <div class="scrubber-axis" id="scrubberAxis"></div>
+      </div>
     </div>
   </div>
 
   <!-- 7-day trend -->
   <section>
-    <h2>7-Day AQI — Hourly Readings</h2>
+    <h2>Recent — Last 7 Days Hourly</h2>
     <canvas id="weeklyChart" height="80"></canvas>
   </section>
 
   <!-- 12-month trend -->
   <section>
-    <h2>12-Month AQI — Daily Averages</h2>
+    <h2>Year Overview — Daily Average</h2>
     <canvas id="yearlyChart" height="80"></canvas>
   </section>
 
   <!-- 12-month daily peak -->
   <section id="peak-aqi">
-    <h2>12-Month AQI — Daily Peak Readings</h2>
+    <h2>Worst Days — Daily Peak AQI</h2>
     <canvas id="peakChart" height="80"></canvas>
   </section>
 
@@ -145,12 +143,61 @@
 {{ timeline_frames|json_script:"timelineFrames" }}
 
 <script>
+function getEffectiveTheme() {
+  const attr = document.documentElement.getAttribute('data-theme');
+  if (attr) return attr;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+// Label format from views.py: "%b %-d, %-I:%M %p ET" e.g. "Apr 5, 6:00 AM ET"
+// Three tick tiers: day (midnight, tallest), major (6h, medium), minor (3h, short, no label).
+function buildScrubberAxis() {
+  const axis = document.getElementById('scrubberAxis');
+  if (!axis || timelineFrames.length < 2) return;
+
+  const total = timelineFrames.length - 1;
+  const frag = document.createDocumentFragment();
+
+  timelineFrames.forEach(function(frame, i) {
+    const pct = i / total * 100;
+    if (pct < 0.5 || pct > 99.5) return;
+
+    const parts = frame.label.split(', ');
+    const time = parts[1];   // "6:00 AM ET", "12:00 PM ET", etc.
+    const el = document.createElement('span');
+    el.style.left = pct + '%';
+
+    if (time.indexOf('12:00 AM') === 0) {
+      el.className = 'scrubber-tick-day';
+      el.textContent = parts[0];   // "Apr 5"
+    } else if (time.indexOf('6:00 AM') === 0) {
+      el.className = 'scrubber-tick-major';
+      el.textContent = '6a';
+    } else if (time.indexOf('12:00 PM') === 0) {
+      el.className = 'scrubber-tick-major';
+      el.textContent = '12p';
+    } else if (time.indexOf('6:00 PM') === 0) {
+      el.className = 'scrubber-tick-major';
+      el.textContent = '6p';
+    } else if (time.indexOf('3:00 AM') === 0 || time.indexOf('9:00 AM') === 0 ||
+               time.indexOf('3:00 PM') === 0 || time.indexOf('9:00 PM') === 0) {
+      el.className = 'scrubber-tick-minor';
+    } else {
+      return;
+    }
+
+    frag.appendChild(el);
+  });
+
+  axis.appendChild(frag);
+}
+
 // --- Map ---
 const stationsData = JSON.parse(document.getElementById('stationsMapData').textContent);
 const timelineFrames = JSON.parse(document.getElementById('timelineFrames').textContent);
 
 const map = L.map('map').setView([42.37, -83.10], 10);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
   subdomains: 'abcd',
   maxZoom: 19,
@@ -224,6 +271,7 @@ if (timelineFrames.length > 0) {
   scrubber.value = timelineFrames.length - 1;   // start at latest
 
   scrubberLabel.textContent = 'Current';
+  buildScrubberAxis();
 
   scrubber.addEventListener('input', function() {
     applyFrame(parseInt(this.value));
@@ -238,8 +286,7 @@ const yearlyData = JSON.parse(document.getElementById('yearlyData').textContent)
 const nightBands = JSON.parse(document.getElementById('nightBands').textContent);
 
 const gridColor = 'rgba(128, 128, 128, 0.15)';
-const tickColor = getComputedStyle(document.body).color;
-const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+const initTickColor = getComputedStyle(document.body).color;
 
 // EPA AQI color scale
 function aqiColor(aqi) {
@@ -288,7 +335,8 @@ const nightShadingPlugin = {
     const { ctx, chartArea, scales } = chart;
     if (!chartArea || !scales.x) return;
     ctx.save();
-    ctx.fillStyle = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,40,0.06)';
+    ctx.fillStyle = document.documentElement.getAttribute('data-theme') === 'dark'
+      ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,40,0.06)';
     nightBands.forEach(function(band) {
       const x1 = scales.x.getPixelForValue(new Date(band.from).getTime());
       const x2 = scales.x.getPixelForValue(new Date(band.to).getTime());
@@ -323,7 +371,7 @@ const thresholdLinePlugin = {
 };
 
 // Weekly chart — individual readings on a time axis
-new Chart(document.getElementById('weeklyChart'), {
+const weeklyChart = new Chart(document.getElementById('weeklyChart'), {
   type: 'line',
   data: {
     datasets: [{
@@ -363,7 +411,7 @@ new Chart(document.getElementById('weeklyChart'), {
         type: 'time',
         time: { unit: 'hour', stepSize: 6 },
         ticks: {
-          color: tickColor,
+          color: initTickColor,
           maxRotation: 0,
           callback: function(value, index, ticks) {
             const d = new Date(value);
@@ -392,7 +440,7 @@ new Chart(document.getElementById('weeklyChart'), {
       y: {
         min: 0,
         grid: { color: gridColor },
-        ticks: { color: tickColor },
+        ticks: { color: initTickColor },
       },
     },
   },
@@ -401,7 +449,7 @@ new Chart(document.getElementById('weeklyChart'), {
 
 // Yearly chart — daily averages on a time axis (same format as weekly)
 // Monthly tick labels but daily data points so smoke spikes stay visible.
-new Chart(document.getElementById('yearlyChart'), {
+const yearlyChart = new Chart(document.getElementById('yearlyChart'), {
   type: 'line',
   data: {
     datasets: [{
@@ -439,13 +487,13 @@ new Chart(document.getElementById('yearlyChart'), {
       x: {
         type: 'time',
         time: { unit: 'month' },
-        ticks: { color: tickColor, maxRotation: 0 },
+        ticks: { color: initTickColor, maxRotation: 0 },
         grid: { display: false },
       },
       y: {
         min: 0,
         grid: { color: gridColor },
-        ticks: { color: tickColor },
+        ticks: { color: initTickColor },
       },
     },
   },
@@ -454,7 +502,7 @@ new Chart(document.getElementById('yearlyChart'), {
 
 // Peak chart — daily maximums, same axes as yearly, adds threshold line at 100
 const peakData = JSON.parse(document.getElementById('peakData').textContent);
-new Chart(document.getElementById('peakChart'), {
+const peakChart = new Chart(document.getElementById('peakChart'), {
   type: 'line',
   data: {
     datasets: [{
@@ -492,17 +540,37 @@ new Chart(document.getElementById('peakChart'), {
       x: {
         type: 'time',
         time: { unit: 'month' },
-        ticks: { color: tickColor, maxRotation: 0 },
+        ticks: { color: initTickColor, maxRotation: 0 },
         grid: { display: false },
       },
       y: {
         min: 0,
         grid: { color: gridColor },
-        ticks: { color: tickColor },
+        ticks: { color: initTickColor },
       },
     },
   },
   plugins: [aqiBandPlugin, thresholdLinePlugin],
 });
+
+// --- Theme application ---
+function applyTheme(theme, persist) {
+  document.documentElement.setAttribute('data-theme', theme);
+  if (persist) localStorage.setItem('theme', theme);
+
+  const tickColor = getComputedStyle(document.body).color;
+  [weeklyChart, yearlyChart, peakChart].forEach(function(chart) {
+    chart.options.scales.x.ticks.color = tickColor;
+    chart.options.scales.y.ticks.color = tickColor;
+    chart.update('none');
+  });
+}
+
+document.getElementById('themeToggle').addEventListener('click', function() {
+  const current = document.documentElement.getAttribute('data-theme');
+  applyTheme(current === 'dark' ? 'light' : 'dark', true);
+});
+
+applyTheme(getEffectiveTheme(), false);
 </script>
 {% endblock %}
