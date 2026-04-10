@@ -520,3 +520,10 @@ section.aqi-reference h2 {
     grid-template-columns: 1fr;
   }
 }
+
+@media (max-width: 600px) {
+  /* 6h time labels crowd each other on narrow screens; keep only day markers. */
+  .scrubber-tick-major {
+    display: none;
+  }
+}
