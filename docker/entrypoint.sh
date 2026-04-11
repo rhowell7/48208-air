@@ -5,6 +5,18 @@ POSTGRES_DB="48208_air"
 POSTGRES_USER="appuser"
 POSTGRES_SOCKET_DIR="/var/run/postgresql"
 
+{
+  printf 'DATABASE_URL=postgres://%s@/%s?host=%s\n' \
+    "$POSTGRES_USER" "$POSTGRES_DB" "$POSTGRES_SOCKET_DIR"
+  if [ -z "${SECRET_KEY:-}" ]; then
+    gosu appuser python -c \
+      'from django.core.management import utils; print(f"SECRET_KEY={utils.get_random_secret_key()}")'
+  fi
+  if [ -z "${TRUST_PROXY_HEADERS:-}" ] && [ -n "${CLOUDFLARED_TOKEN:-}" ]; then
+    printf 'TRUST_PROXY_HEADERS=True\n'
+  fi
+} | (umask 077; gosu appuser tee .env >/dev/null)
+
 postgres_bin_dir() {
   find /usr/lib/postgresql -mindepth 2 -maxdepth 2 -type d -name bin | sort -V | tail -n 1
 }
@@ -49,18 +61,6 @@ done
 
 gosu postgres createuser -h "$POSTGRES_SOCKET_DIR" "$POSTGRES_USER" 2>/dev/null || true
 gosu postgres createdb -h "$POSTGRES_SOCKET_DIR" -O "$POSTGRES_USER" "$POSTGRES_DB" 2>/dev/null || true
-
-export DATABASE_URL="postgres://${POSTGRES_USER}@/${POSTGRES_DB}?host=${POSTGRES_SOCKET_DIR}"
-
-if [ -n "${CLOUDFLARED_TOKEN:-}" ] && [ -z "${TRUST_PROXY_HEADERS:-}" ]; then
-  export TRUST_PROXY_HEADERS="True"
-fi
-
-if [ -z "${SECRET_KEY:-}" ]; then
-  export SECRET_KEY="$(gosu appuser python -c \
-    'from django.core.management import utils; print(utils.get_random_secret_key(), end="")'
-  )"
-fi
 
 gosu appuser python manage.py migrate
 gosu appuser python manage.py load_stations
