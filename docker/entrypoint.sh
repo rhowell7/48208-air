@@ -74,14 +74,18 @@ gosu appuser gunicorn --bind 0.0.0.0:8000 config.wsgi:application &
 child_pids+=("$!")
 
 (
-  interval="${POLL_INTERVAL_SECONDS:-3600}"
-  anchor_ts=$(date +%s)
+  poll_state_file="${PGDATA}/fetch_aqi_last_run"
+  last_run="$(stat -c %Y "$poll_state_file" 2>/dev/null || true)"
+
   while true; do
-    gosu appuser python manage.py fetch_aqi || true
-    # Keep a fixed-rate schedule from container start and skip missed slots.
-    now=$(date +%s)
-    next_run=$((anchor_ts + ((((now - anchor_ts) / interval) + 1) * interval)))
-    sleep "$((next_run - now))"
+    if [ -n "$last_run" ]; then
+      timeout=$((last_run + ${POLL_INTERVAL_SECONDS:-3600} - $(date +%s)))
+      [ "$timeout" -gt 0 ] && sleep "$timeout"
+    fi
+
+    last_run=$(date +%s)
+    gosu appuser python manage.py fetch_aqi && \
+      touch -d "@$last_run" "$poll_state_file"
   done
 ) &
 child_pids+=("$!")
