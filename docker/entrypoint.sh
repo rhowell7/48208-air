@@ -12,21 +12,6 @@ postgres_bin_dir() {
 PG_BIN="$(postgres_bin_dir)"
 export PATH="$PG_BIN:$PATH"
 
-child_pids=()
-
-on_exit() {
-  local status=$?
-  if [ "${#child_pids[@]}" -gt 0 ]; then
-    kill -TERM "${child_pids[@]}" 2>/dev/null || true
-    wait "${child_pids[@]}" 2>/dev/null || true
-  fi
-  exit "$status"
-}
-
-trap on_exit EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
-
 mkdir -p "$PGDATA"
 mkdir -p "$POSTGRES_SOCKET_DIR"
 chown -R postgres:postgres /var/lib/postgresql
@@ -41,7 +26,18 @@ gosu postgres postgres -D "$PGDATA" \
   -c "listen_addresses=" \
   -c "unix_socket_directories=$POSTGRES_SOCKET_DIR" &
 pg_pid=$!
-child_pids+=("$pg_pid")
+child_pids=("$pg_pid")
+
+on_exit() {
+  local status=$?
+  kill -TERM "${child_pids[@]}" 2>/dev/null || true
+  wait "${child_pids[@]}" 2>/dev/null || true
+  exit "$status"
+}
+
+trap on_exit EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 until pg_isready -h "$POSTGRES_SOCKET_DIR" -U postgres >/dev/null 2>&1; do
   if ! kill -0 "$pg_pid" 2>/dev/null; then
