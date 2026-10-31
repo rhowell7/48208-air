@@ -5,27 +5,24 @@ POSTGRES_DB="48208_air"
 POSTGRES_USER="appuser"
 POSTGRES_SOCKET_DIR="/var/run/postgresql"
 
+{
+  printf 'DATABASE_URL=postgres://%s@/%s?host=%s\n' \
+    "$POSTGRES_USER" "$POSTGRES_DB" "$POSTGRES_SOCKET_DIR"
+  if [ -z "${SECRET_KEY:-}" ]; then
+    gosu appuser python -c \
+      'from django.core.management import utils; print(f"SECRET_KEY={utils.get_random_secret_key()}")'
+  fi
+  if [ -z "${TRUST_PROXY_HEADERS:-}" ] && [ -n "${CLOUDFLARED_TOKEN:-}" ]; then
+    printf 'TRUST_PROXY_HEADERS=True\n'
+  fi
+} | (umask 077; gosu appuser tee .env >/dev/null)
+
 postgres_bin_dir() {
   find /usr/lib/postgresql -mindepth 2 -maxdepth 2 -type d -name bin | sort -V | tail -n 1
 }
 
 PG_BIN="$(postgres_bin_dir)"
 export PATH="$PG_BIN:$PATH"
-
-child_pids=()
-
-on_exit() {
-  local status=$?
-  if [ "${#child_pids[@]}" -gt 0 ]; then
-    kill -TERM "${child_pids[@]}" 2>/dev/null || true
-    wait "${child_pids[@]}" 2>/dev/null || true
-  fi
-  exit "$status"
-}
-
-trap on_exit EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
 
 mkdir -p "$PGDATA"
 mkdir -p "$POSTGRES_SOCKET_DIR"
@@ -41,7 +38,18 @@ gosu postgres postgres -D "$PGDATA" \
   -c "listen_addresses=" \
   -c "unix_socket_directories=$POSTGRES_SOCKET_DIR" &
 pg_pid=$!
-child_pids+=("$pg_pid")
+child_pids=("$pg_pid")
+
+on_exit() {
+  local status=$?
+  kill -TERM "${child_pids[@]}" 2>/dev/null || true
+  wait "${child_pids[@]}" 2>/dev/null || true
+  exit "$status"
+}
+
+trap on_exit EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 until pg_isready -h "$POSTGRES_SOCKET_DIR" -U postgres >/dev/null 2>&1; do
   if ! kill -0 "$pg_pid" 2>/dev/null; then
@@ -54,18 +62,6 @@ done
 gosu postgres createuser -h "$POSTGRES_SOCKET_DIR" "$POSTGRES_USER" 2>/dev/null || true
 gosu postgres createdb -h "$POSTGRES_SOCKET_DIR" -O "$POSTGRES_USER" "$POSTGRES_DB" 2>/dev/null || true
 
-export DATABASE_URL="postgres://${POSTGRES_USER}@/${POSTGRES_DB}?host=${POSTGRES_SOCKET_DIR}"
-
-if [ -n "${CLOUDFLARED_TOKEN:-}" ] && [ -z "${TRUST_PROXY_HEADERS:-}" ]; then
-  export TRUST_PROXY_HEADERS="True"
-fi
-
-if [ -z "${SECRET_KEY:-}" ]; then
-  export SECRET_KEY="$(gosu appuser python -c \
-    'from django.core.management import utils; print(utils.get_random_secret_key(), end="")'
-  )"
-fi
-
 gosu appuser python manage.py migrate
 gosu appuser python manage.py load_stations
 gosu appuser python manage.py collectstatic --noinput
@@ -74,14 +70,18 @@ gosu appuser gunicorn --bind 0.0.0.0:8000 config.wsgi:application &
 child_pids+=("$!")
 
 (
-  interval="${POLL_INTERVAL_SECONDS:-3600}"
-  anchor_ts=$(date +%s)
+  poll_state_file="${PGDATA}/fetch_aqi_last_run"
+  last_run="$(stat -c %Y "$poll_state_file" 2>/dev/null || true)"
+
   while true; do
-    gosu appuser python manage.py fetch_aqi || true
-    # Keep a fixed-rate schedule from container start and skip missed slots.
-    now=$(date +%s)
-    next_run=$((anchor_ts + ((((now - anchor_ts) / interval) + 1) * interval)))
-    sleep "$((next_run - now))"
+    if [ -n "$last_run" ]; then
+      timeout=$((last_run + ${POLL_INTERVAL_SECONDS:-3600} - $(date +%s)))
+      [ "$timeout" -gt 0 ] && sleep "$timeout"
+    fi
+
+    last_run=$(date +%s)
+    gosu appuser python manage.py fetch_aqi && \
+      touch -d "@$last_run" "$poll_state_file"
   done
 ) &
 child_pids+=("$!")

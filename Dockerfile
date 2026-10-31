@@ -1,7 +1,5 @@
 FROM python:3.13-slim
 
-LABEL org.opencontainers.image.source="https://github.com/rhowell7/48208-air"
-
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
